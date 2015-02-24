@@ -1,0 +1,29 @@
+sin(x * sin(xt))
+
+
+
+sawtooth:
+          /|          /|
+         / |         / |
+        /  |        /  |
+       /   |       /   |
+      /    |      /    |
+-----/-----|-----/-----|---------------------------
+    /      |    /      |
+   /       |   /       |
+  /        |  /        |
+ /         | /         |
+/          |/          |
+
+
+
+sin(x) + sin(x + asin(t + btsin(t))
+
+
+//data->left_phase = sin((((int) (vars[0] * (t / vars[1]))) % (int) vars[2]) * t);
+//data->left_phase = sin(50 * sin(50 * t));
+//data->left_phase = square(80 * tan(40.0f * t) * (t));
+
+float input = 880.0f * 4.0f * (t / M_PI);
+data->left_phase =  sin(input);
+data->left_phase += sin(input + 50 * sin(t + 0.2f * t * tan(t / 10)));
