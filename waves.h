@@ -12,7 +12,8 @@
 #include <stdio.h>
 
 /* Because laziness.
- * Sine of input in DEGREES (library function takes rads)
+ * Sine of input multiplied by 2PI
+ * So coefficient of input can be frequency in HZ.
  */
 float sine(float input);
 
