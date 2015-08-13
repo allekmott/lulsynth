@@ -32,7 +32,7 @@ int sample_num = 0;
 float *sample_buffer;
 
 /* number of initial sample in buffer */
-float buf_init_sample_num;
+int buf_init_sample_num;
 
 /* ghetto input variable */
 float a = 440.0f;
@@ -144,15 +144,21 @@ void *buffer_dat_shiz(void *arg) {
     
     while (1) {
         if (a != last_a || wave != last_wave) { /* input var changed */
+            printf("Buffer regen, init_sample_num = %i\n", buf_init_sample_num);
             last_a = a; last_wave = wave;
             float *new_buffer = gen_buf(buf_init_sample_num);
             free(sample_buffer);
             sample_buffer = new_buffer;
         } else if (sample_num > (buf_init_sample_num + (SAMPLE_RATE / 2))) { /* 1/2 s through buffer */
-            float *new_buffer = gen_buf(buf_init_sample_num = (buf_init_sample_num + (SAMPLE_RATE / 2)));
+            int new_init_sample_num = buf_init_sample_num + (SAMPLE_RATE / 2);
+            
+            printf("Buffer regen\n\tsample_no = %i\n\tinit_sample_num = %i\n", sample_num, new_init_sample_num);
+            
+            float *new_buffer = gen_buf(buf_init_sample_num = new_init_sample_num);
             free(sample_buffer);
             sample_buffer = new_buffer;
         }
+        /* sleep 1/4 */
         usleep(250000);
     }
     
@@ -172,12 +178,12 @@ static int synth_callback(const void *inbuf,
     (void) inbuf;
     
     for (i=0; i<fpb; i++) {
+        /* assign sample values to output array, increment index */
         *out++ = sample->left_phase;
         *out++ = sample->right_phase;
         
-        float t = ((float) ++sample_num / SAMPLE_RATE);
-        float finput = (sin(a * t) + .5f * sin(.5f * a * t + t) + .25f * sin(.25f * a * t)) / 2.0f;
-        sample->left_phase = sample->right_phase = wave(finput);
+        int buffer_index = (++sample_num - buf_init_sample_num);
+        sample->left_phase = sample->right_phase = sample_buffer[buffer_index];
         
         sample->left_phase *= VOLUME;
         sample->right_phase *= VOLUME;
@@ -217,7 +223,10 @@ int main(int argc, char *argv[]) {
     pa_errcheck(&err);
     
     pthread_t inputThread;
+    pthread_t bufferThread;
     pthread_create(&inputThread, NULL, grab_input, NULL);
+    pthread_create(&bufferThread, NULL, buffer_dat_shiz, NULL);
+    pthread_join(bufferThread, NULL);
     pthread_join(inputThread, NULL);
     
     /* close up portaudio */
@@ -228,6 +237,7 @@ int main(int argc, char *argv[]) {
     pa_errcheck(&err);
     
     Pa_Terminate();
+    free(sample_buffer);
     printf("All done.\n");
     
     /* exit input thread (hopefully) */
