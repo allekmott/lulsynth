@@ -101,11 +101,24 @@ void *grab_input(void *arg) {
 /* Generate 1s worth of samples and throw them all into
  * a nice, pretty buffer.
  *
- * @param init_sampleno sample number represented by index 0 in
+ * @param init_sample_num sample number represented by index 0 in
  *        new buffer
  */
-float *gen_buf(int init_sampleno) {
-    return NULL;
+float *gen_buf(int init_sample_num) {
+    float *buffer = malloc(sizeof(float) * SAMPLE_RATE);
+    
+    /* number of gerated samples */
+    int gend_samples;
+    
+    /* generate a second's worth of samples, throw them in the buffer */
+    for (gend_samples = 0; gend_samples < SAMPLE_RATE; gend_samples++) {
+        /* current time, based upon sample thingy */
+        float t = ((float) (init_sample_num + gend_samples) / SAMPLE_RATE);
+        float finput = (sin(a * t) + .5f * sin(.5f * a * t + t) + .25f * sin(.25f * a * t)) / 2.0f;
+        buffer[gend_samples] = wave(finput);
+    }
+    
+    return buffer;
 }
 
 
