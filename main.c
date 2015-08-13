@@ -14,6 +14,7 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "waves.h"
 #include "portaudio.h"
@@ -24,6 +25,14 @@
 
 /* number of current sample (last sample generated) */
 int sample_num = 0;
+
+/* fat buffer containing a second's worth of samples
+ * used in callback function
+ */
+float *sample_buffer;
+
+/* number of initial sample in buffer */
+float buf_init_sample_num;
 
 /* ghetto input variable */
 float a = 440.0f;
@@ -88,11 +97,16 @@ void *grab_input(void *arg) {
     }
 }
 
-/* fat buffer containing a second's worth of samples
- * used in callback function
- */
-float *sample_buffer;
 
+/* Generate 1s worth of samples and throw them all into
+ * a nice, pretty buffer.
+ *
+ * @param init_sampleno sample number represented by index 0 in
+ *        new buffer
+ */
+float *gen_buf(int init_sampleno) {
+    return NULL;
+}
 
 
 /* Buffering for audio output.
@@ -109,7 +123,25 @@ float *sample_buffer;
 void *buffer_dat_shiz(void *arg) {
     printf("I'm the buffer thread!\n");
     
-    /* TBA */
+    /* Allocate 1s worth of sample memory, starting from t = 0 */
+    sample_buffer = gen_buf(buf_init_sample_num = 0);
+    
+    float last_a = a;
+    void *last_wave = wave;
+    
+    while (1) {
+        if (a != last_a || wave != last_wave) { /* input var changed */
+            last_a = a; last_wave = wave;
+            float *new_buffer = gen_buf(buf_init_sample_num);
+            free(sample_buffer);
+            sample_buffer = new_buffer;
+        } else if (sample_num > (buf_init_sample_num + (SAMPLE_RATE / 2))) { /* 1/2 s through buffer */
+            float *new_buffer = gen_buf(buf_init_sample_num = (buf_init_sample_num + (SAMPLE_RATE / 2)));
+            free(sample_buffer);
+            sample_buffer = new_buffer;
+        }
+        usleep(250000);
+    }
     
     return NULL;
 }
