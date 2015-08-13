@@ -1,10 +1,9 @@
-//
-//  waves.c
-//  LulSynth
-//
-//  Created by Allek Mott on 2/23/15.
-//  Copyright (c) 2015 Allek Mott. All rights reserved.
-//
+/*  waves.c
+ *  LulSynth
+ *
+ *  Created by Allek Mott on 2/23/15.
+ *  Copyright (c) 2015 Allek Mott. All rights reserved.
+ */
 
 #include "waves.h"
 #include <math.h>
@@ -34,7 +33,7 @@ float triangle(float input) {;
     float dec = input - (float) ((int) input);
     float output;
     if (sine(input) > 0.0f) {
-        // positive half
+        /* positive half */
         if (dec <= 0.50f)
             output = 0.0f + dec;
         else

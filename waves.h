@@ -1,10 +1,9 @@
-//
-//  waves.h
-//  LulSynth
-//
-//  Created by Allek Mott on 2/23/15.
-//  Copyright (c) 2015 Allek Mott. All rights reserved.
-//
+/*  waves.h
+ *  LulSynth
+ *
+ *  Created by Allek Mott on 2/23/15.
+ *  Copyright (c) 2015 Allek Mott. All rights reserved.
+ */
 
 #ifndef __LulSynth__waves__
 #define __LulSynth__waves__
