@@ -23,6 +23,9 @@
 #define VOLUME          (0.5f)
 #define FRAMES_PER_BUF  (256)
 
+/* buffer or not */
+int buffer = 1;
+
 /* number of current sample (last sample generated) */
 int sample_num = 0;
 
@@ -97,6 +100,12 @@ void *grab_input(void *arg) {
     }
 }
 
+/* Generate input value for wave function using provided time */
+float gen_finput(float t) {
+    return sin(a * t);
+    //return (sin(a * t) + .5f * sin(.5f * a * t + t) + .25f * sin(.25f * a * t)) / 2.0f;
+}
+
 
 /* Generate 1s worth of samples and throw them all into
  * a nice, pretty buffer.
@@ -114,7 +123,7 @@ float *gen_buf(int init_sample_num) {
     for (gend_samples = 0; gend_samples < SAMPLE_RATE; gend_samples++) {
         /* current time, based upon sample thingy */
         float t = ((float) (init_sample_num + gend_samples) / SAMPLE_RATE);
-        float finput = (sin(a * t) + .5f * sin(.5f * a * t + t) + .25f * sin(.25f * a * t)) / 2.0f;
+        float finput = gen_finput(t);
         buffer[gend_samples] = wave(finput);
     }
     
@@ -155,8 +164,12 @@ void *buffer_dat_shiz(void *arg) {
             printf("Buffer regen\n\tsample_no = %i\n\tinit_sample_num = %i\n", sample_num, new_init_sample_num);
             
             float *new_buffer = gen_buf(buf_init_sample_num = new_init_sample_num);
-            free(sample_buffer);
+            
+            float *old_buffer_pointer = sample_buffer;
             sample_buffer = new_buffer;
+            
+            // free after swap, no hole when freed
+            free(old_buffer_pointer);
         }
         /* sleep 1/4 */
         usleep(250000);
@@ -177,23 +190,38 @@ static int synth_callback(const void *inbuf,
     unsigned int i;
     (void) inbuf;
     
-    for (i=0; i<fpb; i++) {
-        /* assign sample values to output array, increment index */
-        *out++ = sample->left_phase;
-        *out++ = sample->right_phase;
+    if (buffer)
+        for (i=0; i<fpb; i++) {
+            /* assign sample values to output array, increment index */
+            *out++ = sample->left_phase;
+            *out++ = sample->right_phase;
         
-        int buffer_index = (++sample_num - buf_init_sample_num);
-        sample->left_phase = sample->right_phase = sample_buffer[buffer_index];
+            int buffer_index = (++sample_num - buf_init_sample_num);
+            sample->left_phase = sample->right_phase = sample_buffer[buffer_index];
         
-        sample->left_phase *= VOLUME;
-        sample->right_phase *= VOLUME;
-    }
+            sample->left_phase *= VOLUME;
+            sample->right_phase *= VOLUME;
+        }
+    else
+        for (i=0; i<fpb; i++) {
+            /* assign sample values to output array, increment index */
+            *out++ = sample->left_phase;
+            *out++ = sample->right_phase;
+            
+            float t = ((float) ++sample_num / SAMPLE_RATE);
+            float finput = gen_finput(t);
+            sample->left_phase = sample->right_phase = wave(finput);
+            
+            sample->left_phase *= VOLUME;
+            sample->right_phase *= VOLUME;
+        }
     
     return 0;
 }
 
 static sampleData sample;
 int main(int argc, char *argv[]) {
+    
     PaStream *stream;
     PaError err;
     
@@ -225,8 +253,10 @@ int main(int argc, char *argv[]) {
     pthread_t inputThread;
     pthread_t bufferThread;
     pthread_create(&inputThread, NULL, grab_input, NULL);
-    pthread_create(&bufferThread, NULL, buffer_dat_shiz, NULL);
-    pthread_join(bufferThread, NULL);
+    if (buffer) {
+        pthread_create(&bufferThread, NULL, buffer_dat_shiz, NULL);
+        pthread_join(bufferThread, NULL);
+    }
     pthread_join(inputThread, NULL);
     
     /* close up portaudio */
