@@ -184,6 +184,8 @@ static int synth_callback(const void *inbuf,
                           const PaStreamCallbackTimeInfo *time_info,
                           PaStreamCallbackFlags callback_flags,
                           void *usample) {
+    /* pointer to frame inside of buffer */
+    float *frame = sample_buffer + (sample_num - buf_init_sample_num);
     
     sampleData *sample = (sampleData*) usample;
     float *out = (float*) outbuf;
@@ -195,9 +197,9 @@ static int synth_callback(const void *inbuf,
             /* assign sample values to output array, increment index */
             *out++ = sample->left_phase;
             *out++ = sample->right_phase;
-        
-            int buffer_index = (++sample_num - buf_init_sample_num);
-            sample->left_phase = sample->right_phase = sample_buffer[buffer_index];
+            
+            sample->left_phase = sample->right_phase = frame[i];
+            sample_num++;
         
             sample->left_phase *= VOLUME;
             sample->right_phase *= VOLUME;
