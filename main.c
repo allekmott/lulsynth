@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <signal.h>
 #include <math.h>
 #include <time.h>
 #include <stdlib.h>
@@ -54,7 +55,6 @@ typedef struct
 }
 sampleData;
 
-
 /* Check for portaudio error */
 void pa_errcheck(PaError *err) {
     if (*err == paNoError) {
@@ -68,6 +68,39 @@ void pa_errcheck(PaError *err) {
                 *err,
                 Pa_GetErrorText(*err));
         exit(*err);
+    }
+}
+
+/* THREAD STUFF */
+
+PaStream *stream;
+PaError err;
+
+pthread_t inputThread;
+pthread_t bufferThread;
+
+void clean_exit() {
+    pthread_join(inputThread, NULL);
+    
+    /* close up portaudio */
+    err = Pa_StopStream(stream);
+    pa_errcheck(&err);
+    
+    err = Pa_CloseStream(stream);
+    pa_errcheck(&err);
+    
+    Pa_Terminate();
+    free(sample_buffer);
+    printf("All done.\n");
+    
+    /* exit input thread (hopefully) */
+    pthread_exit(NULL);
+}
+
+void sighandler(int signo) {
+    if (signo == SIGINT) {
+        printf("Interrupted, exiting.\n");
+        clean_exit();
     }
 }
 
@@ -156,6 +189,11 @@ void *buffer_dat_shiz(void *arg) {
             printf("Buffer regen, init_sample_num = %i\n", buf_init_sample_num);
             last_a = a; last_wave = wave;
             float *new_buffer = gen_buf(buf_init_sample_num);
+            
+            /* wait until callback has copied frame to free old buffer */
+            while (sample_num % 256 != 0)
+                usleep(23);
+            
             free(sample_buffer);
             sample_buffer = new_buffer;
         } else if (sample_num > (buf_init_sample_num + (SAMPLE_RATE / 2))) { /* 1/2 s through buffer */
@@ -223,9 +261,9 @@ static int synth_callback(const void *inbuf,
 
 static sampleData sample;
 int main(int argc, char *argv[]) {
+    if (signal(SIGINT, sighandler) == SIG_ERR)
+        printf("\ncan't catch SIGINT\n");
     
-    PaStream *stream;
-    PaError err;
     
     srand((unsigned int) time(NULL));
     printf("Initializing PortAudio\n");
@@ -252,26 +290,10 @@ int main(int argc, char *argv[]) {
     err = Pa_StartStream(stream);
     pa_errcheck(&err);
     
-    pthread_t inputThread;
-    pthread_t bufferThread;
     pthread_create(&inputThread, NULL, grab_input, NULL);
     if (buffer) {
         pthread_create(&bufferThread, NULL, buffer_dat_shiz, NULL);
         pthread_join(bufferThread, NULL);
     }
-    pthread_join(inputThread, NULL);
-    
-    /* close up portaudio */
-    err = Pa_StopStream(stream);
-    pa_errcheck(&err);
-    
-    err = Pa_CloseStream(stream);
-    pa_errcheck(&err);
-    
-    Pa_Terminate();
-    free(sample_buffer);
-    printf("All done.\n");
-    
-    /* exit input thread (hopefully) */
-    pthread_exit(NULL);
+    clean_exit();
 }
