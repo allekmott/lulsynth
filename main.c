@@ -25,7 +25,7 @@
 #define FRAMES_PER_BUF  (256)
 
 /* buffer or not */
-int buffer = 1;
+int buffer = 0;
 
 /* number of current sample (last sample generated) */
 int sample_num = 0;
@@ -74,20 +74,20 @@ void pa_errcheck(PaError *err) {
 /* THREAD STUFF */
 
 PaStream *stream;
-PaError err;
+PaError pa_err;
 
 pthread_t inputThread;
 pthread_t bufferThread;
 
 void clean_exit() {
-    pthread_join(inputThread, NULL);
+    pthread_join(bufferThread, NULL);
     
     /* close up portaudio */
-    err = Pa_StopStream(stream);
-    pa_errcheck(&err);
+    pa_err = Pa_StopStream(stream);
+    pa_errcheck(&pa_err);
     
-    err = Pa_CloseStream(stream);
-    pa_errcheck(&err);
+    pa_err = Pa_CloseStream(stream);
+    pa_errcheck(&pa_err);
     
     Pa_Terminate();
     free(sample_buffer);
@@ -135,7 +135,10 @@ void *grab_input(void *arg) {
 
 /* Generate input value for wave function using provided time */
 float gen_finput(float t) {
-    return sin(a * t);
+    return (((255.0 - a)/255.0f) * sine(140.0f * t) +   // red
+            ((255.0 - 2*a)/255.0f) * sine(180.0f * t) +   // green
+            ((255.0 - 3*a)/255.0f) * sine(220.0f * t))    // blue
+            / 3.0f;
     //return (sin(a * t) + .5f * sin(.5f * a * t + t) + .25f * sin(.25f * a * t)) / 2.0f;
 }
 
@@ -272,11 +275,11 @@ int main(int argc, char *argv[]) {
     sample.left_phase = sample.right_phase = 0.0f;
     
     /* init PortAudio library */
-    err = Pa_Initialize();
-    pa_errcheck(&err);
+    pa_err = Pa_Initialize();
+    pa_errcheck(&pa_err);
     
     /* open stream */
-    err = Pa_OpenDefaultStream(&stream,         /* stream pointer               */
+    pa_err = Pa_OpenDefaultStream(&stream,         /* stream pointer               */
                                0,               /* no input channels            */
                                2,               /* stereo (2 output channels)   */
                                paFloat32,       /* 32bits per sample            */
@@ -284,11 +287,11 @@ int main(int argc, char *argv[]) {
                                FRAMES_PER_BUF,  /* frames per buffer            */
                                synth_callback,  /* callback function            */
                                &sample);        /* sample data structure        */
-    pa_errcheck(&err);
+    pa_errcheck(&pa_err);
     
     /* begin writing to stream */
-    err = Pa_StartStream(stream);
-    pa_errcheck(&err);
+    pa_err = Pa_StartStream(stream);
+    pa_errcheck(&pa_err);
     
     pthread_create(&inputThread, NULL, grab_input, NULL);
     if (buffer) {
